@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Elite ETF Cycle - Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8fafc;
+            color: #1e293b;
+            min-height: 100vh;
+            padding: 24px;
+        }
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        /* HEADER */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            gap: 24px;
+        }
+        .header-label {
+            font-size: 0.65rem;
+            font-weight: 700;
+            color: #94a3b8;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+        }
+        .phase-title {
+            font-size: 2.2rem;
+            font-weight: 800;
+            color: #1e293b;
+            letter-spacing: -0.02em;
+        }
+        .momentum {
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin: 4px 0 10px;
+        }
+        .momentum.green { color: #059669; }
+        .momentum.amber { color: #d97706; }
+        .momentum.red { color: #dc2626; }
+        .momentum.blue { color: #0891b2; }
+        .phase-desc {
+            font-size: 0.8rem;
+            color: #64748b;
+            line-height: 1.5;
+            max-width: 420px;
+        }
+        .phase-bars {
+            min-width: 220px;
+        }
+        .phase-bar-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.7rem;
+            margin-bottom: 6px;
+        }
+        .phase-bar-item span:first-child {
+            width: 70px;
+            color: #475569;
+            font-weight: 500;
+        }
+        .bar-track {
+            flex: 1;
+            height: 6px;
+            background: #e2e8f0;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .bar-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.5s ease;
+        }
+        .bar-fill.green { background: #059669; }
+        .bar-fill.amber { background: #d97706; }
+        .bar-fill.red { background: #dc2626; }
+        .bar-fill.blue { background: #0891b2; }
+        .bar-pct {
+            width: 30px;
+            text-align: right;
+            color: #64748b;
+            font-weight: 600;
+        }
+
+        /* SECTIONS */
+        .section {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 16px;
+        }
+        .section-title {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #1e293b;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .section-subtitle {
+            font-size: 0.7rem;
+            color: #94a3b8;
+            margin-top: 2px;
+        }
+        .last-update {
+            font-size: 0.7rem;
+            color: #94a3b8;
+        }
+
+        /* INDICATORS GRID */
+        .indicators-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+        .indicator-card {
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 14px;
+            background: #fff;
+        }
+        .ind-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+        .ind-name {
+            font-size: 0.6rem;
+            font-weight: 700;
+            color: #94a3b8;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+        .ind-delta {
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+        .ind-value {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 8px;
+        }
+        .sparkline {
+            width: 100%;
+            height: 28px;
+            margin-bottom: 8px;
+        }
+        .ind-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .ind-status {
+            font-size: 0.7rem;
+            color: #64748b;
+        }
+        .ind-signal {
+            font-size: 0.6rem;
+            font-weight: 700;
+            padding: 3px 10px;
+            border-radius: 4px;
+            letter-spacing: 0.03em;
+        }
+        .ind-signal.buy {
+            background: #dcfce7;
+            color: #059669;
+            border: 1px solid #bbf7d0;
+        }
+        .ind-signal.wait {
+            background: #fef3c7;
+            color: #d97706;
+            border: 1px solid #fde68a;
+        }
+        .ind-signal.sell {
+            background: #fee2e2;
+            color: #dc2626;
+            border: 1px solid #fecaca;
+        }
+
+        /* BOTTOM SECTION */
+        .bottom-section {
+            display: grid;
+            grid-template-columns: 1.4fr 1fr;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+        .signals-section, .allocation-section {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        /* SIGNALS TABLE */
+        .signals-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 12px;
+            font-size: 0.75rem;
+        }
+        .signals-table th {
+            text-align: left;
+            padding: 8px 10px;
+            font-size: 0.6rem;
+            font-weight: 700;
+            color: #94a3b8;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .signals-table td {
+            padding: 10px;
+            border-bottom: 1px solid #f1f5f9;
+            color: #475569;
+        }
+        .signals-table tr:last-child td {
+            border-bottom: none;
+        }
+        .ticker {
+            font-family: 'SF Mono', monospace;
+            font-weight: 700;
+            color: #1e293b;
+            font-size: 0.7rem;
+        }
+        .table-signal {
+            font-size: 0.6rem;
+            font-weight: 700;
+            padding: 3px 10px;
+            border-radius: 4px;
+            letter-spacing: 0.03em;
+            display: inline-block;
+        }
+        .table-signal.buy {
+            background: #dcfce7;
+            color: #059669;
+            border: 1px solid #bbf7d0;
+        }
+        .table-signal.wait {
+            background: #fef3c7;
+            color: #d97706;
+            border: 1px solid #fde68a;
+        }
+        .table-signal.sell {
+            background: #fee2e2;
+            color: #dc2626;
+            border: 1px solid #fecaca;
+        }
+
+        /* ALLOCATION */
+        .alloc-bar {
+            position: relative;
+            height: 12px;
+            background: #e2e8f0;
+            border-radius: 6px;
+            margin: 16px 0;
+            overflow: hidden;
+        }
+        .alloc-segment {
+            position: absolute;
+            top: 0;
+            height: 100%;
+            transition: all 0.5s ease;
+        }
+        .alloc-legend {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px 16px;
+            margin-bottom: 16px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.75rem;
+            color: #475569;
+        }
+        .legend-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .legend-pct {
+            margin-left: auto;
+            font-weight: 700;
+            color: #1e293b;
+        }
+        .alloc-composition {
+            border-top: 1px solid #e2e8f0;
+            padding-top: 12px;
+        }
+        .comp-title {
+            font-size: 0.6rem;
+            font-weight: 700;
+            color: #94a3b8;
+            letter-spacing: 0.05em;
+            margin-bottom: 4px;
+        }
+        .comp-text {
+            font-size: 0.75rem;
+            color: #475569;
+            line-height: 1.4;
+        }
+
+        /* FOOTER */
+        .footer {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 16px 20px;
+        }
+        .footer p {
+            font-size: 0.65rem;
+            color: #94a3b8;
+            line-height: 1.5;
+        }
+        .footer .sources {
+            margin-top: 8px;
+            font-size: 0.6rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            color: #cbd5e1;
+        }
+
+        /* PHASE SELECTOR */
+        .phase-selector {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+        .phase-btn {
+            padding: 8px 16px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            background: #fff;
+            font-size: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #475569;
+        }
+        .phase-btn:hover {
+            border-color: #cbd5e1;
+            background: #f8fafc;
+        }
+        .phase-btn.active {
+            border-color: #1e293b;
+            background: #1e293b;
+            color: #fff;
+        }
+
+        /* RESPONSIVE */
+        @media (max-width: 900px) {
+            .indicators-grid { grid-template-columns: repeat(2, 1fr); }
+            .bottom-section { grid-template-columns: 1fr; }
+            .header { flex-direction: column; }
+        }
+        @media (max-width: 600px) {
+            .indicators-grid { grid-template-columns: 1fr; }
+            body { padding: 12px; }
+            .phase-title { font-size: 1.6rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- PHASE SELECTOR -->
+        <div class="phase-selector">
+            <button class="phase-btn active" onclick="setPhase('expansion')">🟢 Expansion</button>
+            <button class="phase-btn" onclick="setPhase('slowdown')">🟡 Ralentissement</button>
+            <button class="phase-btn" onclick="setPhase('recession')">🔴 Récession</button>
+            <button class="phase-btn" onclick="setPhase('recovery')">🔵 Reprise</button>
+        </div>
+
+        <!-- HEADER -->
+        <div class="header">
+            <div>
+                <div class="header-label">PHASE DE CYCLE DÉTECTÉE</div>
+                <div class="phase-title" id="phaseTitle">EXPANSION</div>
+                <div class="momentum green" id="momentum">↗ +2.4% momentum</div>
+                <div class="phase-desc" id="phaseDesc">Le PMI composite et les données sur l'emploi confirment une phase d'accélération macroéconomique. Contexte favorable aux actifs risqués.</div>
+            </div>
+            <div class="phase-bars" id="phaseBars">
+                <div class="phase-bar-item">
+                    <span>Expansion</span>
+                    <div class="bar-track"><div class="bar-fill green" style="width:82%"></div></div>
+                    <span class="bar-pct">82%</span>
+                </div>
+                <div class="phase-bar-item">
+                    <span>Pic</span>
+                    <div class="bar-track"><div class="bar-fill amber" style="width:12%"></div></div>
+                    <span class="bar-pct">12%</span>
+                </div>
+                <div class="phase-bar-item">
+                    <span>Contraction</span>
+                    <div class="bar-track"><div class="bar-fill red" style="width:4%"></div></div>
+                    <span class="bar-pct">4%</span>
+                </div>
+                <div class="phase-bar-item">
+                    <span>Creux</span>
+                    <div class="bar-track"><div class="bar-fill blue" style="width:2%"></div></div>
+                    <span class="bar-pct">2%</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- INDICATEURS MACRO -->
+        <div class="section">
+            <div class="section-header">
+                <div>
+                    <div class="section-title">Indicateurs Macroeconomiques</div>
+                    <div class="section-subtitle">Signaux en temps réel des données FRED - BLS - S&P Global</div>
+                </div>
+                <div class="last-update" id="updateTime">Mis à jour : 08/07/2026 15:14</div>
+            </div>
+            <div class="indicators-grid" id="indicatorsGrid"></div>
+        </div>
+
+        <!-- BOTTOM SECTION -->
+        <div class="bottom-section">
+            <!-- SIGNAUX STRATÉGIQUES -->
+            <div class="signals-section">
+                <div class="section-title">Signaux Stratégiques</div>
+                <div class="section-subtitle">Recommandations par classe d'actifs</div>
+                <table class="signals-table">
+                    <thead>
+                        <tr><th>TICKER</th><th>ACTIF</th><th>JUSTIFICATION</th><th>SIGNAL</th></tr>
+                    </thead>
+                    <tbody id="signalsBody"></tbody>
+                </table>
+            </div>
+
+            <!-- ALLOCATION CIBLE -->
+            <div class="allocation-section">
+                <div class="section-title">Allocation Cible</div>
+                <div class="section-subtitle">Portefeuille recommandé</div>
+                <div class="alloc-bar" id="allocBar"></div>
+                <div class="alloc-legend" id="allocLegend"></div>
+                <div class="alloc-composition" id="allocComposition"></div>
+            </div>
+        </div>
+
+        <!-- FOOTER -->
+        <div class="footer">
+            <p><strong>AVERTISSEMENT</strong> — Ce dashboard est fourni à titre informatif uniquement. Il ne constitue pas un conseil en investissement. Investir en bourse comporte des risques de perte en capital. Les performances passées ne préjugent pas des performances futures.</p>
+            <p class="sources">DONNÉES : FRED API · S&P GLOBAL PMI · BLS.GOV · CONFERENCE BOARD</p>
+        </div>
+    </div>
+
+    <script>
+    // ─── DONNÉES PAR PHASE ─────────────────────────────────────────────
+    const PHASES = {
+        expansion: {
+            name: "EXPANSION",
+            momentum: "+2.4%",
+            momentumColor: "green",
+            desc: "Le PMI composite et les données sur l'emploi confirment une phase d'accélération macroéconomique. Contexte favorable aux actifs risqués.",
+            bars: [
+                { label: "Expansion", pct: 82, cls: "green" },
+                { label: "Pic", pct: 12, cls: "amber" },
+                { label: "Contraction", pct: 4, cls: "red" },
+                { label: "Creux", pct: 2, cls: "blue" }
+            ],
+            indicators: [
+                { name: "PMI COMPOSITE", value: "54.2", delta: "+1.8", spark: "up", status: "Expansion", signal: "ACHAT", signalCls: "buy" },
+                { name: "CHÔMAGE US (U3)", value: "3.8%", delta: "-0.1", spark: "down", status: "Plein emploi", signal: "ACHAT", signalCls: "buy" },
+                { name: "COURBE DES TAUX 2Y/10Y", value: "-0.34", delta: "+0.02", spark: "flat", status: "Inversée", signal: "ATTENDRE", signalCls: "wait" },
+                { name: "CONFIANCE CONSOMMATEUR", value: "108.4", delta: "+2.1", spark: "up", status: "Optimiste", signal: "ACHAT", signalCls: "buy" },
+                { name: "INFLATION CORE PCE", value: "2.6%", delta: "-0.1", spark: "down", status: "Modérée", signal: "ACHAT", signalCls: "buy" },
+                { name: "FED FUNDS RATE", value: "5.25%", delta: "0.0", spark: "flat", status: "Stable", signal: "ATTENDRE", signalCls: "wait" }
+            ],
+            signals: [
+                { ticker: "SPY", asset: "S&P 500", justif: "Phase d'expansion confirmée", signal: "ACHAT", cls: "buy" },
+                { ticker: "QQQ", asset: "Nasdaq 100", justif: "Momentum tech positif", signal: "ACHAT", cls: "buy" },
+                { ticker: "IWM", asset: "Russell 2000", justif: "Volatilité élevée", signal: "ATTENDRE", cls: "wait" },
+                { ticker: "TLT", asset: "US Treasury 20Y", justif: "Taux longs sous pression", signal: "VENTE", cls: "sell" },
+                { ticker: "GLD", asset: "Or physique", justif: "Couverture géopolitique", signal: "ACHAT", cls: "buy" },
+                { ticker: "VNQ", asset: "Immobilier US", justif: "Sensible aux taux", signal: "ATTENDRE", cls: "wait" }
+            ],
+            allocation: [
+                { label: "Actions US", pct: 40, color: "#059669" },
+                { label: "Actions Intl", pct: 25, color: "#0891b2" },
+                { label: "Obligations", pct: 15, color: "#6366f1" },
+                { label: "Or & Matières 1res", pct: 10, color: "#d97706" },
+                { label: "Liquidités", pct: 10, color: "#94a3b8" }
+            ],
+            composition: "40% MSCI World - 30% Euro Stoxx 50 - 20% S&P 500 - 10% CAC 40",
+            strategy: "Surperformance des secteurs cycliques, on prend du risque. Privilégier Tech, Industrie, Matériaux."
+        },
+        slowdown: {
+            name: "RALENTISSEMENT",
+            momentum: "+0.3%",
+            momentumColor: "amber",
+            desc: "Visibilité incertaine, marché en plateau. On diversifie sur les indices larges pour lisser le risque sectoriel, sans aller sur les défensifs (or, TIPS) car ce n'est pas encore la récession.",
+            bars: [
+                { label: "Expansion", pct: 25, cls: "green" },
+                { label: "Pic", pct: 55, cls: "amber" },
+                { label: "Contraction", pct: 15, cls: "red" },
+                { label: "Creux", pct: 5, cls: "blue" }
+            ],
+            indicators: [
+                { name: "PMI COMPOSITE", value: "52.2", delta: "+0.2", spark: "flat", status: "Stable", signal: "ATTENDRE", signalCls: "wait" },
+                { name: "CHÔMAGE US (U3)", value: "4.1%", delta: "+0.2", spark: "up-bad", status: "Hausse modérée", signal: "ATTENDRE", signalCls: "wait" },
+                { name: "COURBE DES TAUX 2Y/10Y", value: "+0.35", delta: "+0.05", spark: "up", status: "Normale mais plate", signal: "ACHAT", signalCls: "buy" },
+                { name: "CONFIANCE CONSOMMATEUR", value: "98.2", delta: "-1.5", spark: "down-bad", status: "Neutre", signal: "ATTENDRE", signalCls: "wait" },
+                { name: "INFLATION CORE PCE", value: "3.1%", delta: "+0.2", spark: "up-bad", status: "Élevée", signal: "VENTE", signalCls: "sell" },
+                { name: "FED FUNDS RATE", value: "3.50-3.75%", delta: "0.0", spark: "flat", status: "Pause", signal: "ATTENDRE", signalCls: "wait" }
+            ],
+            signals: [
+                { ticker: "SPY", asset: "S&P 500", justif: "Indice large, lissage du risque", signal: "ACHAT", cls: "buy" },
+                { ticker: "QQQ", asset: "Nasdaq 100", justif: "Tech surévaluée, prudence", signal: "ATTENDRE", cls: "wait" },
+                { ticker: "IWM", asset: "Russell 2000", justif: "Petites caps sensibles au cycle", signal: "VENTE", cls: "sell" },
+                { ticker: "TLT", asset: "US Treasury 20Y", justif: "Taux en baisse, opportunité", signal: "ACHAT", cls: "buy" },
+                { ticker: "GLD", asset: "Or physique", justif: "Trop tôt pour la couverture", signal: "ATTENDRE", cls: "wait" },
+                { ticker: "VNQ", asset: "Immobilier US", justif: "Taux encore élevés", signal: "ATTENDRE", cls: "wait" }
+            ],
+            allocation: [
+                { label: "Actions US", pct: 30, color: "#059669" },
+                { label: "Actions Intl", pct: 35, color: "#0891b2" },
+                { label: "Obligations", pct: 20, color: "#6366f1" },
+                { label: "Or & Matières 1res", pct: 5, color: "#d97706" },
+                { label: "Liquidités", pct: 10, color: "#94a3b8" }
+            ],
+            composition: "40% MSCI World - 30% Euro Stoxx 50 - 20% S&P 500 - 10% CAC 40",
+            strategy: "Diversifier sur les indices larges pour lisser le risque sectoriel. Pas encore de défensifs (or, TIPS)."
+        },
+        recession: {
+            name: "RÉCESSION",
+            momentum: "-3.2%",
+            momentumColor: "red",
+            desc: "Contraction macroéconomique confirmée. Protection du capital, flight-to-quality. Privilégier les actifs défensifs et la liquidité.",
+            bars: [
+                { label: "Expansion", pct: 5, cls: "green" },
+                { label: "Pic", pct: 10, cls: "amber" },
+                { label: "Contraction", pct: 75, cls: "red" },
+                { label: "Creux", pct: 10, cls: "blue" }
+            ],
+            indicators: [
+                { name: "PMI COMPOSITE", value: "46.8", delta: "-2.1", spark: "down-bad", status: "Contraction", signal: "VENTE", signalCls: "sell" },
+                { name: "CHÔMAGE US (U3)", value: "5.4%", delta: "+0.8", spark: "up-bad", status: "Hausse rapide", signal: "VENTE", signalCls: "sell" },
+                { name: "COURBE DES TAUX 2Y/10Y", value: "+1.20", delta: "+0.45", spark: "up", status: "Fortement normale", signal: "ACHAT", signalCls: "buy" },
+                { name: "CONFIANCE CONSOMMATEUR", value: "82.5", delta: "-5.2", spark: "down-bad", status: "Pessimiste", signal: "VENTE", signalCls: "sell" },
+                { name: "INFLATION CORE PCE", value: "1.8%", delta: "-0.5", spark: "down", status: "Faible", signal: "ACHAT", signalCls: "buy" },
+                { name: "FED FUNDS RATE", value: "1.00%", delta: "-0.50", spark: "down", status: "Baisse agressive", signal: "ACHAT", signalCls: "buy" }
+            ],
+            signals: [
+                { ticker: "SPY", asset: "S&P 500", justif: "Marché baissier, sortie", signal: "VENTE", cls: "sell" },
+                { ticker: "QQQ", asset: "Nasdaq 100", justif: "Tech en correction", signal: "VENTE", cls: "sell" },
+                { ticker: "IWM", asset: "Russell 2000", justif: "Petites caps en souffrance", signal: "VENTE", cls: "sell" },
+                { ticker: "TLT", asset: "US Treasury 20Y", justif: "Flight-to-quality", signal: "ACHAT", cls: "buy" },
+                { ticker: "GLD", asset: "Or physique", justif: "Couverture obligatoire", signal: "ACHAT", cls: "buy" },
+                { ticker: "VNQ", asset: "Immobilier US", justif: "Récession = défauts", signal: "VENTE", cls: "sell" }
+            ],
+            allocation: [
+                { label: "Actions US", pct: 10, color: "#059669" },
+                { label: "Actions Intl", pct: 10, color: "#0891b2" },
+                { label: "Obligations", pct: 40, color: "#6366f1" },
+                { label: "Or & Matières 1res", pct: 30, color: "#d97706" },
+                { label: "Liquidités", pct: 10, color: "#94a3b8" }
+            ],
+            composition: "40% Obligations longues/TIPS - 30% Or - 20% Défensifs (Santé, Conso base) - 10% Cash",
+            strategy: "Protection du capital. Flight-to-quality : obligations longues, TIPS, or. Réduire drastiquement l'exposition actions."
+        },
+        recovery: {
+            name: "REPRISE",
+            momentum: "+1.8%",
+            momentumColor: "blue",
+            desc: "Signes de reprise économique. Rotation vers les actifs à forte bêta et la valeur. Opportunité sur les petites capitalisations.",
+            bars: [
+                { label: "Expansion", pct: 15, cls: "green" },
+                { label: "Pic", pct: 5, cls: "amber" },
+                { label: "Contraction", pct: 10, cls: "red" },
+                { label: "Creux", pct: 70, cls: "blue" }
+            ],
+            indicators: [
+                { name: "PMI COMPOSITE", value: "51.5", delta: "+1.2", spark: "up", status: "Reprise", signal: "ACHAT", signalCls: "buy" },
+                { name: "CHÔMAGE US (U3)", value: "4.5%", delta: "-0.3", spark: "down", status: "Amélioration", signal: "ACHAT", signalCls: "buy" },
+                { name: "COURBE DES TAUX 2Y/10Y", value: "+0.80", delta: "+0.15", spark: "up", status: "Normale", signal: "ACHAT", signalCls: "buy" },
+                { name: "CONFIANCE CONSOMMATEUR", value: "95.0", delta: "+3.5", spark: "up", status: "Rebond", signal: "ACHAT", signalCls: "buy" },
+                { name: "INFLATION CORE PCE", value: "2.2%", delta: "+0.1", spark: "up", status: "Cible Fed", signal: "ACHAT", signalCls: "buy" },
+                { name: "FED FUNDS RATE", value: "2.00%", delta: "-0.25", spark: "down", status: "Assouplissement", signal: "ACHAT", signalCls: "buy" }
+            ],
+            signals: [
+                { ticker: "SPY", asset: "S&P 500", justif: "Rebond du marché", signal: "ACHAT", cls: "buy" },
+                { ticker: "QQQ", asset: "Nasdaq 100", justif: "Tech en reprise", signal: "ACHAT", cls: "buy" },
+                { ticker: "IWM", asset: "Russell 2000", justif: "Petites caps, fort beta", signal: "ACHAT", cls: "buy" },
+                { ticker: "TLT", asset: "US Treasury 20Y", justif: "Taux remontent, prudence", signal: "ATTENDRE", cls: "wait" },
+                { ticker: "GLD", asset: "Or physique", justif: "Réduire la couverture", signal: "VENTE", cls: "sell" },
+                { ticker: "VNQ", asset: "Immobilier US", justif: "Reprise du crédit", signal: "ACHAT", cls: "buy" }
+            ],
+            allocation: [
+                { label: "Actions US", pct: 35, color: "#059669" },
+                { label: "Actions Intl", pct: 30, color: "#0891b2" },
+                { label: "Obligations", pct: 15, color: "#6366f1" },
+                { label: "Or & Matières 1res", pct: 10, color: "#d97706" },
+                { label: "Liquidités", pct: 10, color: "#94a3b8" }
+            ],
+            composition: "50% Petites capitalisations + 30% Value + 20% Émergents",
+            strategy: "Rebond des actifs à forte bêta. Rotation vers la valeur et les petites capitalisations. Réduire progressivement l'or."
+        }
+    };
+
+    let currentPhase = "expansion";
+
+    function render() {
+        const data = PHASES[currentPhase];
+
+        // Phase header
+        document.getElementById("phaseTitle").textContent = data.name;
+        const mom = document.getElementById("momentum");
+        mom.textContent = "↗ " + data.momentum + " momentum";
+        mom.className = "momentum " + data.momentumColor;
+        document.getElementById("phaseDesc").textContent = data.desc;
+
+        // Phase bars
+        document.getElementById("phaseBars").innerHTML = data.bars.map(b => `
+            <div class="phase-bar-item">
+                <span>${b.label}</span>
+                <div class="bar-track"><div class="bar-fill ${b.cls}" style="width:${b.pct}%"></div></div>
+                <span class="bar-pct">${b.pct}%</span>
+            </div>
+        `).join("");
+
+        // Indicators
+        document.getElementById("indicatorsGrid").innerHTML = data.indicators.map(ind => {
+            let sparkPath = "";
+            if (ind.spark === "up") sparkPath = '<path d="M2 14 L8 8 L14 14" stroke="#059669" fill="none" stroke-width="1.5"/><circle cx="8" cy="8" r="1.5" fill="#059669"/>';
+            else if (ind.spark === "down") sparkPath = '<path d="M2 8 L8 14 L14 8" stroke="#059669" fill="none" stroke-width="1.5"/><circle cx="8" cy="14" r="1.5" fill="#059669"/>';
+            else if (ind.spark === "down-bad") sparkPath = '<path d="M2 8 L8 14 L14 8" stroke="#dc2626" fill="none" stroke-width="1.5"/><circle cx="8" cy="14" r="1.5" fill="#dc2626"/>';
+            else if (ind.spark === "up-bad") sparkPath = '<path d="M2 14 L8 8 L14 14" stroke="#dc2626" fill="none" stroke-width="1.5"/><circle cx="8" cy="8" r="1.5" fill="#dc2626"/>';
+            else sparkPath = '<path d="M2 11 L8 11 L14 11" stroke="#94a3b8" fill="none" stroke-width="1.5"/><circle cx="8" cy="11" r="1.5" fill="#94a3b8"/>';
+
+            const deltaColor = ind.delta.startsWith("+") ? "#059669" : ind.delta.startsWith("-") ? "#dc2626" : "#94a3b8";
+            const deltaArrow = ind.delta.startsWith("+") ? "↗" : ind.delta.startsWith("-") ? "↘" : "—";
+
+            return `
+                <div class="indicator-card">
+                    <div class="ind-header">
+                        <span class="ind-name">${ind.name}</span>
+                        <span class="ind-delta" style="color:${deltaColor}">${deltaArrow} ${ind.delta}</span>
+                    </div>
+                    <div class="ind-value">${ind.value}</div>
+                    <svg class="sparkline" viewBox="0 0 16 16">${sparkPath}</svg>
+                    <div class="ind-footer">
+                        <span class="ind-status">${ind.status}</span>
+                        <span class="ind-signal ${ind.signalCls}">${ind.signal}</span>
+                    </div>
+                </div>
+            `;
+        }).join("");
+
+        // Signals table
+        document.getElementById("signalsBody").innerHTML = data.signals.map(s => `
+            <tr>
+                <td class="ticker">${s.ticker}</td>
+                <td>${s.asset}</td>
+                <td>${s.justif}</td>
+                <td><span class="table-signal ${s.cls}">${s.signal}</span></td>
+            </tr>
+        `).join("");
+
+        // Allocation bar
+        let accum = 0;
+        document.getElementById("allocBar").innerHTML = data.allocation.map(a => {
+            const left = accum;
+            accum += a.pct;
+            return `<div class="alloc-segment" style="left:${left}%; width:${a.pct}%; background:${a.color}"></div>`;
+        }).join("");
+
+        // Allocation legend
+        document.getElementById("allocLegend").innerHTML = data.allocation.map(a => `
+            <div class="legend-item">
+                <div class="legend-dot" style="background:${a.color}"></div>
+                <span>${a.label}</span>
+                <span class="legend-pct">${a.pct}%</span>
+            </div>
+        `).join("");
+
+        // Composition
+        document.getElementById("allocComposition").innerHTML = `
+            <div class="comp-title">COMPOSITION ACTIONS</div>
+            <div class="comp-text">${data.composition}</div>
+        `;
+
+        // Update time
+        const now = new Date();
+        document.getElementById("updateTime").textContent = "Mis à jour : " + now.toLocaleString("fr-FR", {day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});
+
+        // Update buttons
+        document.querySelectorAll(".phase-btn").forEach(btn => {
+            btn.classList.remove("active");
+            if (btn.textContent.toLowerCase().includes(currentPhase === "slowdown" ? "ralentissement" : currentPhase)) {
+                btn.classList.add("active");
+            }
+        });
+    }
+
+    function setPhase(phase) {
+        currentPhase = phase;
+        render();
+    }
+
+    render();
+    </script>
+</body>
+</html>
