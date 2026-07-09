@@ -202,6 +202,14 @@ jobs:
               const sigCls = { "ACHAT": "buy", "ATTENDRE": "wait", "VENTE": "sell" };
               const signals = etfList.map(e => ({ name: e.name, cat: e.cat, isin: e.isin, pea: e.pea, signal: e.sig[phase], cls: sigCls[e.sig[phase]] }));
 
+              // NOTE EXPLICATIVE PAR PHASE : quel type d'ETF on achete et pourquoi (source: guide section 3-4)
+              const phaseNotes = {
+                expansion: "On achete les secteurs cycliques qui amplifient la croissance : Banques, Luxe, Industrie, Energie. Ils profitent directement de l'expansion du credit, de la consommation et des carnets de commandes.",
+                slowdown: "On sort des secteurs cycliques et on revient sur les indices larges (S&amp;P 500, Europe, Monde, CAC 40) pour lisser le risque sectoriel, sans encore aller sur les defensifs (Or, TIPS) car la recession n'est pas confirmee.",
+                recession: "Priorite a la protection du capital : Or et TIPS absorbent la chute des marches actions, Utilities et Telecoms resistent car leur demande reste stable meme en crise (electricite, abonnements).",
+                recovery: "On sort des valeurs refuges et on revient sur celles qui rebondissent le plus fort en sortie de crise : Banques (tres vendues pendant la crise), Luxe, Energie, et Conso. de base qui a tenu bon."
+              };
+
               // ALLOCATION
               let allocation, composition;
               if (phase === 'expansion') {
@@ -293,6 +301,8 @@ jobs:
           .pea-badge{font-size:.6rem;font-weight:700;padding:3px 8px;border-radius:4px;letter-spacing:.03em;display:inline-block;font-family:'SF Mono',monospace}
           .pea-badge.pea-yes{background:#dbeafe;color:#1d4ed8;border:1px solid #bfdbfe}
           .pea-badge.pea-maybe{background:#fef3c7;color:#b45309;border:1px solid #fde68a;font-family:inherit;font-weight:600}
+          .phase-note-box{background:#f8fafc;border-left:3px solid #1e293b;border-radius:6px;padding:10px 14px;margin:10px 0 14px;font-size:.75rem;color:#475569;line-height:1.5}
+          .phase-note-box strong{color:#1e293b}
           .pea-badge.pea-no{background:#f1f5f9;color:#94a3b8;border:1px solid #e2e8f0;font-family:inherit;font-weight:600}
           .alloc-bar{position:relative;height:12px;background:#e2e8f0;border-radius:6px;margin:16px 0;overflow:hidden}
           .alloc-segment{position:absolute;top:0;height:100%;transition:all .5s ease}
@@ -336,6 +346,7 @@ jobs:
           <div class="signals-section">
           <div class="section-title">Signaux Strategiques</div>
           <div class="section-subtitle">Les 14 ETF de la strategie — rotation selon la phase (2-3 positions simultanees max)</div>
+          <div class="phase-note-box"><strong>En phase ${phaseName}</strong> : ${phaseNotes[phase]}</div>
           <table class="signals-table">
           <thead><tr><th>ETF</th><th>CATEGORIE</th><th>ISIN</th><th>PEA</th><th>SIGNAL</th></tr></thead>
           <tbody>
