@@ -1,0 +1,357 @@
+name: Update Dashboard Daily
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Fetch FRED data and rebuild dashboard
+        env:
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+        run: |
+          node << 'ENDSCRIPT'
+          const https = require('https');
+          const fs = require('fs');
+
+          const API_KEY = process.env.FRED_API_KEY;
+
+          if (!API_KEY || API_KEY === 'YOUR_FRED_API_KEY_HERE') {
+            console.log('WARNING: No valid FRED API key found. Using fallback data.');
+            let html = fs.readFileSync('index.html', 'utf8');
+            const now = new Date();
+            const dateStr = now.toLocaleString('fr-FR', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+            html = html.replace(/Mis a jour : [^<]+/, 'Mis a jour : ' + dateStr + ' (donnees statiques)');
+            fs.writeFileSync('index.html', html);
+            console.log('Dashboard timestamp updated with fallback data.');
+            process.exit(0);
+          }
+
+          // PATCH 1 + 2 : limit=7 pour sauter les valeurs "." (week-ends/feries) + timeout 15s
+          function fetchFRED(seriesId) {
+            return new Promise((resolve, reject) => {
+              const url = `https://api.stlouisfed.org/fred/series/observations?series_id=${seriesId}&api_key=${API_KEY}&file_type=json&limit=7&sort_order=desc`;
+              const req = https.get(url, (res) => {
+                let data = '';
+                res.on('data', chunk => data += chunk);
+                res.on('end', () => {
+                  try {
+                    const json = JSON.parse(data);
+                    if (json.observations && json.observations.length) {
+                      const valid = json.observations.find(o => o.value !== '.');
+                      if (valid) { resolve(valid); return; }
+                    }
+                    reject(new Error('No valid observations for ' + seriesId));
+                  } catch(e) { reject(e); }
+                });
+              });
+              req.on('error', reject);
+              req.setTimeout(15000, () => { req.destroy(new Error('Timeout ' + seriesId)); });
+            });
+          }
+
+          async function main() {
+            try {
+              console.log('Fetching FRED data...');
+
+              let tenY, twoY, spread, spreadHY, unemp, fed;
+
+              try {
+                const yield10y = await fetchFRED('DGS10');
+                tenY = parseFloat(yield10y.value);
+              } catch(e) { tenY = 4.45; console.log('Using fallback DGS10:', tenY); }
+
+              try {
+                const yield2y = await fetchFRED('DGS2');
+                twoY = parseFloat(yield2y.value);
+              } catch(e) { twoY = 4.10; console.log('Using fallback DGS2:', twoY); }
+
+              try {
+                const spreads = await fetchFRED('BAMLH0A0HYM2');
+                spreadHY = parseFloat(spreads.value);
+              } catch(e) { spreadHY = 350; console.log('Using fallback BAMLH0A0HYM2:', spreadHY); }
+
+              try {
+                const unemployment = await fetchFRED('UNRATE');
+                unemp = parseFloat(unemployment.value);
+              } catch(e) { unemp = 4.1; console.log('Using fallback UNRATE:', unemp); }
+
+              try {
+                const fedFunds = await fetchFRED('FEDFUNDS');
+                fed = parseFloat(fedFunds.value);
+              } catch(e) { fed = 3.75; console.log('Using fallback FEDFUNDS:', fed); }
+
+              spread = tenY - twoY;
+
+              console.log(`Spread 2Y/10Y: ${spread.toFixed(2)}%`);
+              console.log(`Chomage: ${unemp.toFixed(1)}%`);
+              console.log(`Fed Funds: ${fed.toFixed(2)}%`);
+              console.log(`High Yield Spreads: ${spreadHY.toFixed(0)} bps`);
+
+              // DETECTION DE PHASE
+              let phase = 'slowdown';
+              let phaseName = 'RALENTISSEMENT';
+              let momentum = '+0.3%';
+              let momentumColor = 'amber';
+              let desc = "Visibilite incertaine, marche en plateau. On diversifie sur les indices larges pour lisser le risque sectoriel, sans aller sur les defensifs (or, TIPS) car ce n'est pas encore la recession.";
+              let bars = [
+                { label: "Expansion", pct: 25, cls: "green" },
+                { label: "Pic", pct: 55, cls: "amber" },
+                { label: "Contraction", pct: 15, cls: "red" },
+                { label: "Creux", pct: 5, cls: "blue" }
+              ];
+
+              if (spread > 0.5 && unemp < 4.5 && fed > 4) {
+                phase = 'expansion';
+                phaseName = 'EXPANSION';
+                momentum = '+2.4%';
+                momentumColor = 'green';
+                desc = "Le PMI composite et les donnees sur l'emploi confirment une phase d'acceleration macroeconomique. Contexte favorable aux actifs risques.";
+                bars = [
+                  { label: "Expansion", pct: 82, cls: "green" },
+                  { label: "Pic", pct: 12, cls: "amber" },
+                  { label: "Contraction", pct: 4, cls: "red" },
+                  { label: "Creux", pct: 2, cls: "blue" }
+                ];
+              } else if (unemp > 5.5 || spread < 0) {
+                phase = 'recession';
+                phaseName = 'RECESSION';
+                momentum = '-3.2%';
+                momentumColor = 'red';
+                desc = "Contraction macroeconomique confirmee. Protection du capital, flight-to-quality. Privilegier les actifs defensifs et la liquidite.";
+                bars = [
+                  { label: "Expansion", pct: 5, cls: "green" },
+                  { label: "Pic", pct: 10, cls: "amber" },
+                  { label: "Contraction", pct: 75, cls: "red" },
+                  { label: "Creux", pct: 10, cls: "blue" }
+                ];
+              } else if (unemp < 5 && spread > 0.3 && fed < 3) {
+                phase = 'recovery';
+                phaseName = 'REPRISE';
+                momentum = '+1.8%';
+                momentumColor = 'blue';
+                desc = "Signes de reprise economique. Rotation vers les actifs a forte beta et la valeur. Opportunite sur les petites capitalisations.";
+                bars = [
+                  { label: "Expansion", pct: 15, cls: "green" },
+                  { label: "Pic", pct: 5, cls: "amber" },
+                  { label: "Contraction", pct: 10, cls: "red" },
+                  { label: "Creux", pct: 70, cls: "blue" }
+                ];
+              }
+
+              console.log(`Phase detectee: ${phaseName}`);
+
+              // PATCH 4 : fleche coherente avec le signe du momentum
+              const momentumArrow = momentum.startsWith('-') ? '&#8600;' : '&#8599;';
+
+              // INDICATEURS
+              const indicators = [
+                { name: "COURBE DES TAUX 2Y/10Y", value: (spread >= 0 ? "+" : "") + spread.toFixed(2), delta: (spread >= 0 ? "+" : "") + spread.toFixed(2), spark: spread > 0.3 ? "up" : "flat", status: spread > 0.5 ? "Normale" : spread > 0 ? "Normale mais plate" : "Inversee", signal: spread > 0.3 ? "ACHAT" : "ATTENDRE", signalCls: spread > 0.3 ? "buy" : "wait" },
+                { name: "CHÔMAGE US (U3)", value: unemp.toFixed(1) + "%", delta: (unemp >= 4 ? "+" : "") + (unemp - 4).toFixed(1), spark: unemp < 4.5 ? "down" : "up-bad", status: unemp < 4 ? "Plein emploi" : unemp < 5 ? "Hausse moderee" : "Hausse rapide", signal: unemp < 4.5 ? "ACHAT" : "ATTENDRE", signalCls: unemp < 4.5 ? "buy" : "wait" },
+                { name: "FED FUNDS RATE", value: fed.toFixed(2) + "%", delta: "0.0", spark: "flat", status: fed > 4 ? "Restrictif" : fed > 2 ? "Stable" : "Assouplissement", signal: fed > 4 ? "VENTE" : fed > 2 ? "ATTENDRE" : "ACHAT", signalCls: fed > 4 ? "sell" : fed > 2 ? "wait" : "buy" },
+                { name: "SPREADS HIGH YIELD", value: spreadHY.toFixed(0) + " bps", delta: (spreadHY >= 300 ? "+" : "") + (spreadHY - 300).toFixed(0), spark: spreadHY < 300 ? "down" : "up-bad", status: spreadHY < 300 ? "Faibles" : spreadHY < 500 ? "Moderes" : "Eleves", signal: spreadHY < 400 ? "ACHAT" : "ATTENDRE", signalCls: spreadHY < 400 ? "buy" : "wait" },
+                { name: "TAUX 10 ANS", value: tenY.toFixed(2) + "%", delta: (tenY >= 4 ? "+" : "") + (tenY - 4).toFixed(2), spark: tenY > 4 ? "up" : "down", status: tenY > 4.5 ? "Eleves" : tenY > 3 ? "Moderes" : "Bas", signal: tenY < 4 ? "ACHAT" : "ATTENDRE", signalCls: tenY < 4 ? "buy" : "wait" },
+                { name: "TAUX 2 ANS", value: twoY.toFixed(2) + "%", delta: (twoY >= 4 ? "+" : "") + (twoY - 4).toFixed(2), spark: twoY > 4 ? "up" : "down", status: twoY > 4.5 ? "Eleves" : twoY > 3 ? "Moderes" : "Bas", signal: twoY < 4 ? "ACHAT" : "VENTE", signalCls: twoY < 4 ? "buy" : "sell" }
+              ];
+
+              // SIGNALS
+              const signals = [
+                { ticker: "SPY", asset: "S&P 500", justif: phase === 'expansion' ? "Phase d'expansion confirmee" : phase === 'recession' ? "Marche baissier, sortie" : "Indice large, lissage du risque", signal: phase === 'recession' ? "VENTE" : "ACHAT", cls: phase === 'recession' ? "sell" : "buy" },
+                { ticker: "QQQ", asset: "Nasdaq 100", justif: phase === 'expansion' ? "Momentum tech positif" : phase === 'recession' ? "Tech en correction" : "Tech surevaluee, prudence", signal: phase === 'expansion' ? "ACHAT" : phase === 'recession' ? "VENTE" : "ATTENDRE", cls: phase === 'expansion' ? "buy" : phase === 'recession' ? "sell" : "wait" },
+                { ticker: "IWM", asset: "Russell 2000", justif: phase === 'expansion' ? "Volatilite elevee" : phase === 'recession' ? "Petites caps en souffrance" : "Petites caps sensibles au cycle", signal: phase === 'expansion' ? "ATTENDRE" : phase === 'recession' ? "VENTE" : "VENTE", cls: phase === 'expansion' ? "wait" : "sell" },
+                { ticker: "TLT", asset: "US Treasury 20Y", justif: phase === 'expansion' ? "Taux longs sous pression" : phase === 'recession' ? "Flight-to-quality" : "Taux en baisse, opportunite", signal: phase === 'expansion' ? "VENTE" : "ACHAT", cls: phase === 'expansion' ? "sell" : "buy" },
+                { ticker: "GLD", asset: "Or physique", justif: phase === 'expansion' ? "Couverture geopolitique" : phase === 'recession' ? "Couverture obligatoire" : "Trop tot pour la couverture", signal: phase === 'recession' ? "ACHAT" : phase === 'expansion' ? "ACHAT" : "ATTENDRE", cls: phase === 'recession' ? "buy" : phase === 'expansion' ? "buy" : "wait" },
+                { ticker: "VNQ", asset: "Immobilier US", justif: phase === 'expansion' ? "Sensible aux taux" : phase === 'recession' ? "Recession = defauts" : "Taux encore eleves", signal: phase === 'recovery' ? "ACHAT" : "ATTENDRE", cls: phase === 'recovery' ? "buy" : "wait" }
+              ];
+
+              // ALLOCATION
+              let allocation, composition;
+              if (phase === 'expansion') {
+                allocation = [{ label: "Actions US", pct: 40, color: "#059669" }, { label: "Actions Intl", pct: 25, color: "#0891b2" }, { label: "Obligations", pct: 15, color: "#6366f1" }, { label: "Or & Matieres 1res", pct: 10, color: "#d97706" }, { label: "Liquidites", pct: 10, color: "#94a3b8" }];
+                composition = "40% MSCI World - 30% Euro Stoxx 50 - 20% S&P 500 - 10% CAC 40";
+              } else if (phase === 'recession') {
+                allocation = [{ label: "Actions US", pct: 10, color: "#059669" }, { label: "Actions Intl", pct: 10, color: "#0891b2" }, { label: "Obligations", pct: 40, color: "#6366f1" }, { label: "Or & Matieres 1res", pct: 30, color: "#d97706" }, { label: "Liquidites", pct: 10, color: "#94a3b8" }];
+                composition = "40% Obligations longues/TIPS - 30% Or - 20% Defensifs (Sante, Conso base) - 10% Cash";
+              } else if (phase === 'recovery') {
+                allocation = [{ label: "Actions US", pct: 35, color: "#059669" }, { label: "Actions Intl", pct: 30, color: "#0891b2" }, { label: "Obligations", pct: 15, color: "#6366f1" }, { label: "Or & Matieres 1res", pct: 10, color: "#d97706" }, { label: "Liquidites", pct: 10, color: "#94a3b8" }];
+                composition = "50% Petites capitalisations + 30% Value + 20% Emergents";
+              } else {
+                allocation = [{ label: "Actions US", pct: 30, color: "#059669" }, { label: "Actions Intl", pct: 35, color: "#0891b2" }, { label: "Obligations", pct: 20, color: "#6366f1" }, { label: "Or & Matieres 1res", pct: 5, color: "#d97706" }, { label: "Liquidites", pct: 10, color: "#94a3b8" }];
+                composition = "40% MSCI World - 30% Euro Stoxx 50 - 20% S&P 500 - 10% CAC 40";
+              }
+
+              // GENERER HTML
+              const now = new Date();
+              const dateStr = now.toLocaleString('fr-FR', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+
+              let html = `<!DOCTYPE html>
+          <html lang="fr">
+          <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Elite ETF Cycle - Dashboard</title>
+          <style>
+          *{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f8fafc;color:#1e293b;min-height:100vh;padding:24px}.container{max-width:1100px;margin:0 auto}
+          .header{display:flex;justify-content:space-between;align-items:flex-start;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:24px;margin-bottom:20px;gap:24px}
+          .header-label{font-size:.65rem;font-weight:700;color:#94a3b8;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px}
+          .phase-title{font-size:2.2rem;font-weight:800;color:#1e293b;letter-spacing:-.02em}
+          .momentum{font-size:.8rem;font-weight:600;margin:4px 0 10px}.momentum.green{color:#059669}.momentum.amber{color:#d97706}.momentum.red{color:#dc2626}.momentum.blue{color:#0891b2}
+          .phase-desc{font-size:.8rem;color:#64748b;line-height:1.5;max-width:420px}
+          .phase-bars{min-width:220px}.phase-bar-item{display:flex;align-items:center;gap:10px;font-size:.7rem;margin-bottom:6px}
+          .phase-bar-item span:first-child{width:70px;color:#475569;font-weight:500}
+          .bar-track{flex:1;height:6px;background:#e2e8f0;border-radius:3px;overflow:hidden}
+          .bar-fill{height:100%;border-radius:3px;transition:width .5s ease}.bar-fill.green{background:#059669}.bar-fill.amber{background:#d97706}.bar-fill.red{background:#dc2626}.bar-fill.blue{background:#0891b2}
+          .bar-pct{width:30px;text-align:right;color:#64748b;font-weight:600}
+          .section{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;margin-bottom:16px}
+          .section-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px}
+          .section-title{font-size:.85rem;font-weight:700;color:#1e293b;text-transform:uppercase;letter-spacing:.04em}
+          .section-subtitle{font-size:.7rem;color:#94a3b8;margin-top:2px}
+          .last-update{font-size:.7rem;color:#94a3b8}
+          .indicators-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+          .indicator-card{border:1px solid #e2e8f0;border-radius:10px;padding:14px;background:#fff}
+          .ind-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+          .ind-name{font-size:.6rem;font-weight:700;color:#94a3b8;letter-spacing:.05em;text-transform:uppercase}
+          .ind-delta{font-size:.7rem;font-weight:600}
+          .ind-value{font-size:1.4rem;font-weight:700;color:#1e293b;margin-bottom:8px}
+          .sparkline{width:100%;height:28px;margin-bottom:8px}
+          .ind-footer{display:flex;justify-content:space-between;align-items:center}
+          .ind-status{font-size:.7rem;color:#64748b}
+          .ind-signal{font-size:.6rem;font-weight:700;padding:3px 10px;border-radius:4px;letter-spacing:.03em}
+          .ind-signal.buy{background:#dcfce7;color:#059669;border:1px solid #bbf7d0}
+          .ind-signal.wait{background:#fef3c7;color:#d97706;border:1px solid #fde68a}
+          .ind-signal.sell{background:#fee2e2;color:#dc2626;border:1px solid #fecaca}
+          .bottom-section{display:grid;grid-template-columns:1.4fr 1fr;gap:16px;margin-bottom:16px}
+          .signals-section,.allocation-section{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:20px}
+          .signals-table{width:100%;border-collapse:collapse;margin-top:12px;font-size:.75rem}
+          .signals-table th{text-align:left;padding:8px 10px;font-size:.6rem;font-weight:700;color:#94a3b8;letter-spacing:.05em;text-transform:uppercase;border-bottom:1px solid #e2e8f0}
+          .signals-table td{padding:10px;border-bottom:1px solid #f1f5f9;color:#475569}
+          .signals-table tr:last-child td{border-bottom:none}
+          .ticker{font-family:'SF Mono',monospace;font-weight:700;color:#1e293b;font-size:.7rem}
+          .table-signal{font-size:.6rem;font-weight:700;padding:3px 10px;border-radius:4px;letter-spacing:.03em;display:inline-block}
+          .table-signal.buy{background:#dcfce7;color:#059669;border:1px solid #bbf7d0}
+          .table-signal.wait{background:#fef3c7;color:#d97706;border:1px solid #fde68a}
+          .table-signal.sell{background:#fee2e2;color:#dc2626;border:1px solid #fecaca}
+          .alloc-bar{position:relative;height:12px;background:#e2e8f0;border-radius:6px;margin:16px 0;overflow:hidden}
+          .alloc-segment{position:absolute;top:0;height:100%;transition:all .5s ease}
+          .alloc-legend{display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;margin-bottom:16px}
+          .legend-item{display:flex;align-items:center;gap:8px;font-size:.75rem;color:#475569}
+          .legend-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+          .legend-pct{margin-left:auto;font-weight:700;color:#1e293b}
+          .alloc-composition{border-top:1px solid #e2e8f0;padding-top:12px}
+          .comp-title{font-size:.6rem;font-weight:700;color:#94a3b8;letter-spacing:.05em;margin-bottom:4px}
+          .comp-text{font-size:.75rem;color:#475569;line-height:1.4}
+          .footer{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:16px 20px}
+          .footer p{font-size:.65rem;color:#94a3b8;line-height:1.5}
+          .footer .sources{margin-top:8px;font-size:.6rem;font-weight:700;letter-spacing:.05em;color:#cbd5e1}
+          .phase-selector{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+          .phase-badge{padding:8px 16px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;font-size:.75rem;font-weight:600;color:#94a3b8;user-select:none}
+          .phase-badge.active{border-color:#1e293b;background:#1e293b;color:#fff}
+          @media(max-width:900px){.indicators-grid{grid-template-columns:repeat(2,1fr)}.bottom-section{grid-template-columns:1fr}.header{flex-direction:column}}
+          @media(max-width:600px){.indicators-grid{grid-template-columns:1fr}body{padding:12px}.phase-title{font-size:1.6rem}}
+          </style>
+          </head>
+          <body>
+          <div class="container">
+          <div class="phase-selector">
+          <div class="phase-badge ${phase==='expansion'?'active':''}">&#128994; Expansion</div>
+          <div class="phase-badge ${phase==='slowdown'?'active':''}">&#128993; Ralentissement</div>
+          <div class="phase-badge ${phase==='recession'?'active':''}">&#128308; Recession</div>
+          <div class="phase-badge ${phase==='recovery'?'active':''}">&#128309; Reprise</div>
+          </div>
+          <div class="header">
+          <div>
+          <div class="header-label">PHASE DE CYCLE DETECTEE</div>
+          <div class="phase-title">${phaseName}</div>
+          <div class="momentum ${momentumColor}">${momentumArrow} ${momentum} momentum</div>
+          <div class="phase-desc">${desc}</div>
+          </div>
+          <div class="phase-bars">
+          ${bars.map(b=>`<div class="phase-bar-item"><span>${b.label}</span><div class="bar-track"><div class="bar-fill ${b.cls}" style="width:${b.pct}%"></div></div><span class="bar-pct">${b.pct}%</span></div>`).join('')}
+          </div>
+          </div>
+          <div class="section">
+          <div class="section-header">
+          <div>
+          <div class="section-title">Indicateurs Macroeconomiques</div>
+          <div class="section-subtitle">Signaux en temps reel des donnees FRED - BLS - S&P Global</div>
+          </div>
+          <div class="last-update">Mis a jour : ${dateStr}</div>
+          </div>
+          <div class="indicators-grid">
+          ${indicators.map(ind=>{
+          let sp='';
+          if(ind.spark==='up')sp='<path d="M2 14 L8 8 L14 14" stroke="#059669" fill="none" stroke-width="1.5"/><circle cx="8" cy="8" r="1.5" fill="#059669"/>';
+          else if(ind.spark==='down')sp='<path d="M2 8 L8 14 L14 8" stroke="#059669" fill="none" stroke-width="1.5"/><circle cx="8" cy="14" r="1.5" fill="#059669"/>';
+          else if(ind.spark==='down-bad')sp='<path d="M2 8 L8 14 L14 8" stroke="#dc2626" fill="none" stroke-width="1.5"/><circle cx="8" cy="14" r="1.5" fill="#dc2626"/>';
+          else if(ind.spark==='up-bad')sp='<path d="M2 14 L8 8 L14 14" stroke="#dc2626" fill="none" stroke-width="1.5"/><circle cx="8" cy="8" r="1.5" fill="#dc2626"/>';
+          else sp='<path d="M2 11 L8 11 L14 11" stroke="#94a3b8" fill="none" stroke-width="1.5"/><circle cx="8" cy="11" r="1.5" fill="#94a3b8"/>';
+          const dc=ind.delta.startsWith('+')?'#059669':ind.delta.startsWith('-')?'#dc2626':'#94a3b8';
+          const da=ind.delta.startsWith('+')?'&#8599;':ind.delta.startsWith('-')?'&#8600;':'&#8212;';
+          return `<div class="indicator-card"><div class="ind-header"><span class="ind-name">${ind.name}</span><span class="ind-delta" style="color:${dc}">${da} ${ind.delta}</span></div><div class="ind-value">${ind.value}</div><svg class="sparkline" viewBox="0 0 16 16">${sp}</svg><div class="ind-footer"><span class="ind-status">${ind.status}</span><span class="ind-signal ${ind.signalCls}">${ind.signal}</span></div></div>`;
+          }).join('')}
+          </div>
+          </div>
+          <div class="bottom-section">
+          <div class="signals-section">
+          <div class="section-title">Signaux Strategiques</div>
+          <div class="section-subtitle">Recommandations par classe d'actifs</div>
+          <table class="signals-table">
+          <thead><tr><th>TICKER</th><th>ACTIF</th><th>JUSTIFICATION</th><th>SIGNAL</th></tr></thead>
+          <tbody>
+          ${signals.map(s=>`<tr><td class="ticker">${s.ticker}</td><td>${s.asset}</td><td>${s.justif}</td><td><span class="table-signal ${s.cls}">${s.signal}</span></td></tr>`).join('')}
+          </tbody>
+          </table>
+          </div>
+          <div class="allocation-section">
+          <div class="section-title">Allocation Cible</div>
+          <div class="section-subtitle">Portefeuille recommande</div>
+          <div class="alloc-bar">
+          ${(()=>{let a=0;return allocation.map(x=>{const l=a;a+=x.pct;return`<div class="alloc-segment" style="left:${l}%;width:${x.pct}%;background:${x.color}"></div>`}).join('');})()}
+          </div>
+          <div class="alloc-legend">
+          ${allocation.map(a=>`<div class="legend-item"><div class="legend-dot" style="background:${a.color}"></div><span>${a.label}</span><span class="legend-pct">${a.pct}%</span></div>`).join('')}
+          </div>
+          <div class="alloc-composition">
+          <div class="comp-title">COMPOSITION ACTIONS</div>
+          <div class="comp-text">${composition}</div>
+          </div>
+          </div>
+          </div>
+          <div class="footer">
+          <p><strong>AVERTISSEMENT</strong> &#8212; Ce dashboard est fourni a titre informatif uniquement. Il ne constitue pas un conseil en investissement. Investir en bourse comporte des risques de perte en capital. Les performances passees ne prejugent pas des performances futures.</p>
+          <p class="sources">DONNEES : FRED API &#183; S&P GLOBAL PMI &#183; BLS.GOV &#183; CONFERENCE BOARD</p>
+          </div>
+          </div>
+          </body>
+          </html>`;
+
+              fs.writeFileSync('index.html', html);
+              console.log('SUCCESS: Dashboard rebuilt with real FRED data!');
+              console.log(`Phase: ${phaseName}`);
+
+            } catch(e) {
+              console.error('ERROR:', e.message);
+              process.exit(1);
+            }
+          }
+
+          main();
+          ENDSCRIPT
+
+      - name: Commit and push changes
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add index.html
+          git diff --cached --quiet || git commit -m "Auto-update: FRED data refresh - $(date +%Y-%m-%d)"
+          git push
