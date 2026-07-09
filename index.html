@@ -45,6 +45,8 @@
 .pea-badge{font-size:.6rem;font-weight:700;padding:3px 8px;border-radius:4px;letter-spacing:.03em;display:inline-block;font-family:'SF Mono',monospace}
 .pea-badge.pea-yes{background:#dbeafe;color:#1d4ed8;border:1px solid #bfdbfe}
 .pea-badge.pea-maybe{background:#fef3c7;color:#b45309;border:1px solid #fde68a;font-family:inherit;font-weight:600}
+.phase-note-box{background:#f8fafc;border-left:3px solid #1e293b;border-radius:6px;padding:10px 14px;margin:10px 0 14px;font-size:.75rem;color:#475569;line-height:1.5}
+.phase-note-box strong{color:#1e293b}
 .pea-badge.pea-no{background:#f1f5f9;color:#94a3b8;border:1px solid #e2e8f0;font-family:inherit;font-weight:600}
 .alloc-bar{position:relative;height:12px;background:#e2e8f0;border-radius:6px;margin:16px 0;overflow:hidden}
 .alloc-segment{position:absolute;top:0;height:100%;transition:all .5s ease}
@@ -88,6 +90,7 @@
 <div class="signals-section">
 <div class="section-title">Signaux Strategiques</div>
 <div class="section-subtitle">Les 14 ETF de la strategie — rotation selon la phase (2-3 positions simultanees max)</div>
+<div class="phase-note-box"><strong>En phase RALENTISSEMENT</strong> : On sort des secteurs cycliques et on revient sur les indices larges (S&amp;P 500, Europe, Monde, CAC 40) pour lisser le risque sectoriel, sans encore aller sur les defensifs (Or, TIPS) car la recession n'est pas confirmee.</div>
 <table class="signals-table">
 <thead><tr><th>ETF</th><th>CATEGORIE</th><th>ISIN</th><th>PEA</th><th>SIGNAL</th></tr></thead>
 <tbody>
@@ -118,7 +121,7 @@
 <div class="section-title">Indicateurs Macroeconomiques</div>
 <div class="section-subtitle">Signaux en temps reel des donnees FRED - BLS - S&P Global</div>
 </div>
-<div class="last-update">Mis a jour : 09/07/2026 10:34</div>
+<div class="last-update">Mis a jour : 09/07/2026 10:52</div>
 </div>
 <div class="indicators-grid">
 <div class="indicator-card"><div class="ind-header"><span class="ind-name">COURBE DES TAUX 2Y/10Y</span><span class="ind-delta" style="color:#059669">&#8599; +0.36</span></div><div class="ind-value">+0.36</div><svg class="sparkline" viewBox="0 0 16 16"><path d="M2 14 L8 8 L14 14" stroke="#059669" fill="none" stroke-width="1.5"/><circle cx="8" cy="8" r="1.5" fill="#059669"/></svg><div class="ind-footer"><span class="ind-status">Normale mais plate</span><span class="ind-signal buy">ACHAT</span></div></div><div class="indicator-card"><div class="ind-header"><span class="ind-name">CHÔMAGE US (U3)</span><span class="ind-delta" style="color:#059669">&#8599; +0.2</span></div><div class="ind-value">4.2%</div><svg class="sparkline" viewBox="0 0 16 16"><path d="M2 8 L8 14 L14 8" stroke="#059669" fill="none" stroke-width="1.5"/><circle cx="8" cy="14" r="1.5" fill="#059669"/></svg><div class="ind-footer"><span class="ind-status">Hausse moderee</span><span class="ind-signal buy">ACHAT</span></div></div><div class="indicator-card"><div class="ind-header"><span class="ind-name">FED FUNDS RATE</span><span class="ind-delta" style="color:#94a3b8">&#8212; 0.0</span></div><div class="ind-value">3.63%</div><svg class="sparkline" viewBox="0 0 16 16"><path d="M2 11 L8 11 L14 11" stroke="#94a3b8" fill="none" stroke-width="1.5"/><circle cx="8" cy="11" r="1.5" fill="#94a3b8"/></svg><div class="ind-footer"><span class="ind-status">Stable</span><span class="ind-signal wait">ATTENDRE</span></div></div><div class="indicator-card"><div class="ind-header"><span class="ind-name">SPREADS HIGH YIELD</span><span class="ind-delta" style="color:#dc2626">&#8600; -297</span></div><div class="ind-value">3 bps</div><svg class="sparkline" viewBox="0 0 16 16"><path d="M2 8 L8 14 L14 8" stroke="#059669" fill="none" stroke-width="1.5"/><circle cx="8" cy="14" r="1.5" fill="#059669"/></svg><div class="ind-footer"><span class="ind-status">Faibles</span><span class="ind-signal buy">ACHAT</span></div></div><div class="indicator-card"><div class="ind-header"><span class="ind-name">TAUX 10 ANS</span><span class="ind-delta" style="color:#059669">&#8599; +0.55</span></div><div class="ind-value">4.55%</div><svg class="sparkline" viewBox="0 0 16 16"><path d="M2 14 L8 8 L14 14" stroke="#059669" fill="none" stroke-width="1.5"/><circle cx="8" cy="8" r="1.5" fill="#059669"/></svg><div class="ind-footer"><span class="ind-status">Eleves</span><span class="ind-signal wait">ATTENDRE</span></div></div><div class="indicator-card"><div class="ind-header"><span class="ind-name">TAUX 2 ANS</span><span class="ind-delta" style="color:#059669">&#8599; +0.19</span></div><div class="ind-value">4.19%</div><svg class="sparkline" viewBox="0 0 16 16"><path d="M2 14 L8 8 L14 14" stroke="#059669" fill="none" stroke-width="1.5"/><circle cx="8" cy="8" r="1.5" fill="#059669"/></svg><div class="ind-footer"><span class="ind-status">Moderes</span><span class="ind-signal sell">VENTE</span></div></div>
