@@ -154,6 +154,19 @@ jobs:
 
               console.log(`Phase detectee: ${phaseName}`);
 
+              // DETECTION DE CHANGEMENT DE PHASE (pour email d'alerte)
+              let previousPhase = null;
+              try { previousPhase = fs.readFileSync('last-phase.txt', 'utf8').trim(); } catch(e) { previousPhase = null; }
+              // Pas de changement detecte au tout premier run (previousPhase null) pour eviter un email fantome au deploiement initial.
+              const phaseChanged = previousPhase !== null && previousPhase !== phase;
+              fs.writeFileSync('last-phase.txt', phase);
+              if (process.env.GITHUB_ENV) {
+                fs.appendFileSync(process.env.GITHUB_ENV, `PHASE_CHANGED=${phaseChanged}\n`);
+                fs.appendFileSync(process.env.GITHUB_ENV, `PREVIOUS_PHASE_NAME=${previousPhase || 'aucune (premier run)'}\n`);
+                fs.appendFileSync(process.env.GITHUB_ENV, `NEW_PHASE_NAME=${phaseName}\n`);
+              }
+              console.log(`Changement de phase: ${phaseChanged} (avant: ${previousPhase}, maintenant: ${phase})`);
+
               // PATCH 4 : fleche coherente avec le signe du momentum
               const momentumArrow = momentum.startsWith('-') ? '&#8600;' : '&#8599;';
 
@@ -167,15 +180,27 @@ jobs:
                 { name: "TAUX 2 ANS", value: twoY.toFixed(2) + "%", delta: (twoY >= 4 ? "+" : "") + (twoY - 4).toFixed(2), spark: twoY > 4 ? "up" : "down", status: twoY > 4.5 ? "Eleves" : twoY > 3 ? "Moderes" : "Bas", signal: twoY < 4 ? "ACHAT" : "VENTE", signalCls: twoY < 4 ? "buy" : "sell" }
               ];
 
-              // SIGNALS
-              const signals = [
-                { ticker: "SPY", asset: "S&P 500", justif: phase === 'expansion' ? "Phase d'expansion confirmee" : phase === 'recession' ? "Marche baissier, sortie" : "Indice large, lissage du risque", signal: phase === 'recession' ? "VENTE" : "ACHAT", cls: phase === 'recession' ? "sell" : "buy" },
-                { ticker: "QQQ", asset: "Nasdaq 100", justif: phase === 'expansion' ? "Momentum tech positif" : phase === 'recession' ? "Tech en correction" : "Tech surevaluee, prudence", signal: phase === 'expansion' ? "ACHAT" : phase === 'recession' ? "VENTE" : "ATTENDRE", cls: phase === 'expansion' ? "buy" : phase === 'recession' ? "sell" : "wait" },
-                { ticker: "IWM", asset: "Russell 2000", justif: phase === 'expansion' ? "Volatilite elevee" : phase === 'recession' ? "Petites caps en souffrance" : "Petites caps sensibles au cycle", signal: phase === 'expansion' ? "ATTENDRE" : phase === 'recession' ? "VENTE" : "VENTE", cls: phase === 'expansion' ? "wait" : "sell" },
-                { ticker: "TLT", asset: "US Treasury 20Y", justif: phase === 'expansion' ? "Taux longs sous pression" : phase === 'recession' ? "Flight-to-quality" : "Taux en baisse, opportunite", signal: phase === 'expansion' ? "VENTE" : "ACHAT", cls: phase === 'expansion' ? "sell" : "buy" },
-                { ticker: "GLD", asset: "Or physique", justif: phase === 'expansion' ? "Couverture geopolitique" : phase === 'recession' ? "Couverture obligatoire" : "Trop tot pour la couverture", signal: phase === 'recession' ? "ACHAT" : phase === 'expansion' ? "ACHAT" : "ATTENDRE", cls: phase === 'recession' ? "buy" : phase === 'expansion' ? "buy" : "wait" },
-                { ticker: "VNQ", asset: "Immobilier US", justif: phase === 'expansion' ? "Sensible aux taux" : phase === 'recession' ? "Recession = defauts" : "Taux encore eleves", signal: phase === 'recovery' ? "ACHAT" : "ATTENDRE", cls: phase === 'recovery' ? "buy" : "wait" }
+              // SIGNALS — 14 ETF du guide Elite ETF, signal par phase (sections 3-4 du guide)
+              // pea: 'O' eligible, 'N' non eligible, 'V' a verifier (les '?' du guide, non resolus volontairement)
+              // NB: noms "Lyxor" herites du guide ; Lyxor a ete absorbe par Amundi, verifier chaque ligne par ISIN sur justETF avant achat.
+              const etfList = [
+                { name: "Amundi PEA S&P 500",              cat: "Actions US",      isin: "FR0011871128", pea: "O", sig: { expansion:"ATTENDRE", slowdown:"ACHAT",    recession:"VENTE",    recovery:"ATTENDRE" } },
+                { name: "Amundi Euro Stoxx 50 II",         cat: "Actions Europe",  isin: "FR0007054358", pea: "O", sig: { expansion:"ATTENDRE", slowdown:"ACHAT",    recession:"VENTE",    recovery:"ATTENDRE" } },
+                { name: "Lyxor PEA Monde (MSCI World)",    cat: "Actions Monde",   isin: "FR0011869353", pea: "O", sig: { expansion:"ATTENDRE", slowdown:"ACHAT",    recession:"VENTE",    recovery:"ATTENDRE" } },
+                { name: "Lyxor CAC 40 (DR)",               cat: "Actions France",  isin: "FR0013380607", pea: "O", sig: { expansion:"ATTENDRE", slowdown:"ACHAT",    recession:"VENTE",    recovery:"ATTENDRE" } },
+                { name: "Lyxor Euro Stoxx Banks (DR)",     cat: "Banques Europe",  isin: "LU1829219390", pea: "O", sig: { expansion:"ACHAT",    slowdown:"VENTE",    recession:"VENTE",    recovery:"ACHAT" } },
+                { name: "Lyxor MSCI World Financials",     cat: "Finance Monde",   isin: "LU0533032859", pea: "V", sig: { expansion:"ACHAT",    slowdown:"VENTE",    recession:"VENTE",    recovery:"ATTENDRE" } },
+                { name: "Amundi S&P Global Luxury",        cat: "Luxe",            isin: "LU1681048630", pea: "V", sig: { expansion:"ACHAT",    slowdown:"VENTE",    recession:"VENTE",    recovery:"ACHAT" } },
+                { name: "Lyxor Stoxx Eur. 600 Industrial", cat: "Industrie",       isin: "LU1834987890", pea: "O", sig: { expansion:"ACHAT",    slowdown:"VENTE",    recession:"VENTE",    recovery:"ATTENDRE" } },
+                { name: "Amundi MSCI Europe Energy",       cat: "Energie",         isin: "FR0010930644", pea: "O", sig: { expansion:"ACHAT",    slowdown:"VENTE",    recession:"VENTE",    recovery:"ACHAT" } },
+                { name: "Lyxor Stoxx Eur. 600 Utilities",  cat: "Utilities",       isin: "LU1834988864", pea: "O", sig: { expansion:"VENTE",    slowdown:"ATTENDRE", recession:"ACHAT",    recovery:"VENTE" } },
+                { name: "Lyxor Stoxx Eur. 600 Telecom",    cat: "Telecoms",        isin: "LU1834988609", pea: "O", sig: { expansion:"VENTE",    slowdown:"ATTENDRE", recession:"ACHAT",    recovery:"VENTE" } },
+                { name: "Lyxor MSCI World Cons. Staples",  cat: "Conso. de base",  isin: "LU0533032347", pea: "V", sig: { expansion:"VENTE",    slowdown:"ATTENDRE", recession:"ACHAT",    recovery:"ACHAT" } },
+                { name: "Amundi Physical Gold ETC",        cat: "Or physique",     isin: "FR0013416716", pea: "N", sig: { expansion:"VENTE",    slowdown:"ATTENDRE", recession:"ACHAT",    recovery:"VENTE" } },
+                { name: "Lyxor Core US TIPS (DR)",         cat: "Oblig./Inflation",isin: "LU1452600197", pea: "N", sig: { expansion:"VENTE",    slowdown:"ATTENDRE", recession:"ACHAT",    recovery:"VENTE" } }
               ];
+              const sigCls = { "ACHAT": "buy", "ATTENDRE": "wait", "VENTE": "sell" };
+              const signals = etfList.map(e => ({ name: e.name, cat: e.cat, isin: e.isin, pea: e.pea, signal: e.sig[phase], cls: sigCls[e.sig[phase]] }));
 
               // ALLOCATION
               let allocation, composition;
@@ -196,6 +221,30 @@ jobs:
               // GENERER HTML
               const now = new Date();
               const dateStr = now.toLocaleString('fr-FR', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+
+              // RAPPORT DU JOUR (texte brut pour l'email)
+              const achats = signals.filter(s => s.signal === 'ACHAT');
+              const ventes = signals.filter(s => s.signal === 'VENTE');
+              let report = '';
+              report += `RAPPORT ELITE ETF CYCLE - ${dateStr}\n`;
+              report += `================================================\n\n`;
+              report += `PHASE DE CYCLE : ${phaseName}\n`;
+              report += `${desc}\n\n`;
+              report += `INDICATEURS MACRO\n`;
+              report += `- Courbe des taux 2Y/10Y : ${(spread >= 0 ? "+" : "")}${spread.toFixed(2)}%\n`;
+              report += `- Taux 10 ans : ${tenY.toFixed(2)}%  |  Taux 2 ans : ${twoY.toFixed(2)}%\n`;
+              report += `- Chomage US (U3) : ${unemp.toFixed(1)}%\n`;
+              report += `- Fed Funds Rate : ${fed.toFixed(2)}%\n`;
+              report += `- Spreads High Yield : ${spreadHY.toFixed(0)} bps\n\n`;
+              report += `ETF A ACHETER (${achats.length})\n`;
+              report += achats.length ? achats.map(s => `- ${s.name} (${s.isin})`).join('\n') + '\n\n' : 'Aucun signal ACHAT aujourd\'hui.\n\n';
+              if (ventes.length) {
+                report += `ETF A VENDRE / SORTIR (${ventes.length})\n`;
+                report += ventes.map(s => `- ${s.name} (${s.isin})`).join('\n') + '\n\n';
+              }
+              report += `Voir le dashboard complet : https://afmarxer-cmd.github.io/elite-etf-cycle/\n\n`;
+              report += `--\nCeci est un message automatique. Ne constitue pas un conseil en investissement.\nInvestir en bourse comporte des risques de perte en capital.`;
+              fs.writeFileSync('email-report.txt', report);
 
               let html = `<!DOCTYPE html>
           <html lang="fr">
@@ -241,6 +290,10 @@ jobs:
           .table-signal.buy{background:#dcfce7;color:#059669;border:1px solid #bbf7d0}
           .table-signal.wait{background:#fef3c7;color:#d97706;border:1px solid #fde68a}
           .table-signal.sell{background:#fee2e2;color:#dc2626;border:1px solid #fecaca}
+          .pea-badge{font-size:.6rem;font-weight:700;padding:3px 8px;border-radius:4px;letter-spacing:.03em;display:inline-block;font-family:'SF Mono',monospace}
+          .pea-badge.pea-yes{background:#dbeafe;color:#1d4ed8;border:1px solid #bfdbfe}
+          .pea-badge.pea-maybe{background:#fef3c7;color:#b45309;border:1px solid #fde68a;font-family:inherit;font-weight:600}
+          .pea-badge.pea-no{background:#f1f5f9;color:#94a3b8;border:1px solid #e2e8f0;font-family:inherit;font-weight:600}
           .alloc-bar{position:relative;height:12px;background:#e2e8f0;border-radius:6px;margin:16px 0;overflow:hidden}
           .alloc-segment{position:absolute;top:0;height:100%;transition:all .5s ease}
           .alloc-legend{display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;margin-bottom:16px}
@@ -279,6 +332,34 @@ jobs:
           ${bars.map(b=>`<div class="phase-bar-item"><span>${b.label}</span><div class="bar-track"><div class="bar-fill ${b.cls}" style="width:${b.pct}%"></div></div><span class="bar-pct">${b.pct}%</span></div>`).join('')}
           </div>
           </div>
+          <div class="bottom-section">
+          <div class="signals-section">
+          <div class="section-title">Signaux Strategiques</div>
+          <div class="section-subtitle">Les 14 ETF de la strategie — rotation selon la phase (2-3 positions simultanees max)</div>
+          <table class="signals-table">
+          <thead><tr><th>ETF</th><th>CATEGORIE</th><th>ISIN</th><th>PEA</th><th>SIGNAL</th></tr></thead>
+          <tbody>
+          ${signals.map(s=>`<tr><td>${s.name}</td><td>${s.cat}</td><td class="ticker">${s.isin}</td><td>${s.pea==='O' ? `<span class="pea-badge pea-yes">PEA</span>` : s.pea==='V' ? `<span class="pea-badge pea-maybe">A verifier</span>` : `<span class="pea-badge pea-no">Non eligible</span>`}</td><td><span class="table-signal ${s.cls}">${s.signal}</span></td></tr>`).join('')}
+          </tbody>
+          </table>
+          <p style="font-size:.62rem;color:#94a3b8;margin-top:10px;line-height:1.5">Noms herites de la strategie d'origine : Lyxor a ete absorbe par Amundi, certains ETF ont ete renommes ou fusionnes. Toujours verifier par ISIN sur justETF ou le site de l'emetteur avant tout ordre.</p>
+          <p style="font-size:.62rem;color:#b45309;margin-top:6px;line-height:1.5"><strong>Pour les lignes "A verifier"</strong> : chercher l'ISIN sur justETF ou la fiche produit Amundi et regarder la mention "Eligible PEA : Oui/Non". Si NON, se demander : existe-t-il une version PEA du meme indice (souvent nommee "PEA ..." chez Amundi, replication synthetique) ? Si oui, remplacer l'ISIN par celui de la version PEA ; sinon, prevoir un CTO pour cette ligne.</p>
+          </div>
+          <div class="allocation-section">
+          <div class="section-title">Allocation Cible</div>
+          <div class="section-subtitle">Portefeuille recommande</div>
+          <div class="alloc-bar">
+          ${(()=>{let a=0;return allocation.map(x=>{const l=a;a+=x.pct;return`<div class="alloc-segment" style="left:${l}%;width:${x.pct}%;background:${x.color}"></div>`}).join('');})()}
+          </div>
+          <div class="alloc-legend">
+          ${allocation.map(a=>`<div class="legend-item"><div class="legend-dot" style="background:${a.color}"></div><span>${a.label}</span><span class="legend-pct">${a.pct}%</span></div>`).join('')}
+          </div>
+          <div class="alloc-composition">
+          <div class="comp-title">COMPOSITION ACTIONS</div>
+          <div class="comp-text">${composition}</div>
+          </div>
+          </div>
+          </div>
           <div class="section">
           <div class="section-header">
           <div>
@@ -299,32 +380,6 @@ jobs:
           const da=ind.delta.startsWith('+')?'&#8599;':ind.delta.startsWith('-')?'&#8600;':'&#8212;';
           return `<div class="indicator-card"><div class="ind-header"><span class="ind-name">${ind.name}</span><span class="ind-delta" style="color:${dc}">${da} ${ind.delta}</span></div><div class="ind-value">${ind.value}</div><svg class="sparkline" viewBox="0 0 16 16">${sp}</svg><div class="ind-footer"><span class="ind-status">${ind.status}</span><span class="ind-signal ${ind.signalCls}">${ind.signal}</span></div></div>`;
           }).join('')}
-          </div>
-          </div>
-          <div class="bottom-section">
-          <div class="signals-section">
-          <div class="section-title">Signaux Strategiques</div>
-          <div class="section-subtitle">Recommandations par classe d'actifs</div>
-          <table class="signals-table">
-          <thead><tr><th>TICKER</th><th>ACTIF</th><th>JUSTIFICATION</th><th>SIGNAL</th></tr></thead>
-          <tbody>
-          ${signals.map(s=>`<tr><td class="ticker">${s.ticker}</td><td>${s.asset}</td><td>${s.justif}</td><td><span class="table-signal ${s.cls}">${s.signal}</span></td></tr>`).join('')}
-          </tbody>
-          </table>
-          </div>
-          <div class="allocation-section">
-          <div class="section-title">Allocation Cible</div>
-          <div class="section-subtitle">Portefeuille recommande</div>
-          <div class="alloc-bar">
-          ${(()=>{let a=0;return allocation.map(x=>{const l=a;a+=x.pct;return`<div class="alloc-segment" style="left:${l}%;width:${x.pct}%;background:${x.color}"></div>`}).join('');})()}
-          </div>
-          <div class="alloc-legend">
-          ${allocation.map(a=>`<div class="legend-item"><div class="legend-dot" style="background:${a.color}"></div><span>${a.label}</span><span class="legend-pct">${a.pct}%</span></div>`).join('')}
-          </div>
-          <div class="alloc-composition">
-          <div class="comp-title">COMPOSITION ACTIONS</div>
-          <div class="comp-text">${composition}</div>
-          </div>
           </div>
           </div>
           <div class="footer">
@@ -352,6 +407,19 @@ jobs:
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
-          git add index.html
+          git add index.html last-phase.txt
           git diff --cached --quiet || git commit -m "Auto-update: FRED data refresh - $(date +%Y-%m-%d)"
           git push
+
+      - name: Send email on phase change
+        if: env.PHASE_CHANGED == 'true'
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          to: ${{ secrets.MAIL_TO }}
+          from: Elite ETF Cycle <${{ secrets.MAIL_USERNAME }}>
+          subject: "Changement de phase : ${{ env.PREVIOUS_PHASE_NAME }} -> ${{ env.NEW_PHASE_NAME }}"
+          body: file://email-report.txt
