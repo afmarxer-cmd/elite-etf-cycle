@@ -160,9 +160,10 @@ jobs:
               // Pas de changement detecte au tout premier run (previousPhase null) pour eviter un email fantome au deploiement initial.
               const phaseChanged = previousPhase !== null && previousPhase !== phase;
               fs.writeFileSync('last-phase.txt', phase);
+              const displayNames = { expansion: 'EXPANSION', slowdown: 'RALENTISSEMENT', recession: 'RECESSION', recovery: 'REPRISE' };
               if (process.env.GITHUB_ENV) {
                 fs.appendFileSync(process.env.GITHUB_ENV, `PHASE_CHANGED=${phaseChanged}\n`);
-                fs.appendFileSync(process.env.GITHUB_ENV, `PREVIOUS_PHASE_NAME=${previousPhase || 'aucune (premier run)'}\n`);
+                fs.appendFileSync(process.env.GITHUB_ENV, `PREVIOUS_PHASE_NAME=${displayNames[previousPhase] || 'aucune (premier run)'}\n`);
                 fs.appendFileSync(process.env.GITHUB_ENV, `NEW_PHASE_NAME=${phaseName}\n`);
               }
               console.log(`Changement de phase: ${phaseChanged} (avant: ${previousPhase}, maintenant: ${phase})`);
@@ -234,6 +235,13 @@ jobs:
               const achats = signals.filter(s => s.signal === 'ACHAT');
               const ventes = signals.filter(s => s.signal === 'VENTE');
               let report = '';
+              report += `LA METHODE ELITE ETF CYCLE - EN BREF\n`;
+              report += `------------------------------------------------\n`;
+              report += `L'economie passe par 4 phases (Expansion, Ralentissement, Recession, Reprise), dans un ordre qui se repete mais a une vitesse imprevisible. Chaque phase favorise des secteurs boursiers differents.\n\n`;
+              report += `La methode = une rotation, pas un empilement. On detient toujours 2-3 ETF a la fois : ceux qui profitent de la phase en cours. Quand la phase change, on vend les ETF de l'ancienne phase et on achete ceux de la nouvelle, avec le meme argent - il ne quitte jamais le PEA, donc pas de fiscalite declenchee a chaque echange.\n\n`;
+              report += `Marche a suivre : le tableau ci-dessous indique ACHAT / VENTE / ATTENDRE pour chaque ETF. On attend une confirmation de la nouvelle phase avant d'agir plutot que de reagir a un seul signal isole. Environ 4 ajustements par an.\n\n`;
+              report += `Ce n'est pas garanti : methode basee sur des tendances historiques, pas une science exacte.\n`;
+              report += `================================================\n\n`;
               report += `RAPPORT ELITE ETF CYCLE - ${dateStr}\n`;
               report += `================================================\n\n`;
               report += `PHASE DE CYCLE : ${phaseName}\n`;
@@ -303,6 +311,8 @@ jobs:
           .pea-badge.pea-maybe{background:#fef3c7;color:#b45309;border:1px solid #fde68a;font-family:inherit;font-weight:600}
           .phase-note-box{background:#f8fafc;border-left:3px solid #1e293b;border-radius:6px;padding:10px 14px;margin:10px 0 14px;font-size:.75rem;color:#475569;line-height:1.5}
           .phase-note-box strong{color:#1e293b}
+          .method-text p{font-size:.78rem;color:#475569;line-height:1.6;margin-bottom:10px}
+          .method-text p:last-child{margin-bottom:0}
           .pea-badge.pea-no{background:#f1f5f9;color:#94a3b8;border:1px solid #e2e8f0;font-family:inherit;font-weight:600}
           .alloc-bar{position:relative;height:12px;background:#e2e8f0;border-radius:6px;margin:16px 0;overflow:hidden}
           .alloc-segment{position:absolute;top:0;height:100%;transition:all .5s ease}
@@ -391,6 +401,15 @@ jobs:
           const da=ind.delta.startsWith('+')?'&#8599;':ind.delta.startsWith('-')?'&#8600;':'&#8212;';
           return `<div class="indicator-card"><div class="ind-header"><span class="ind-name">${ind.name}</span><span class="ind-delta" style="color:${dc}">${da} ${ind.delta}</span></div><div class="ind-value">${ind.value}</div><svg class="sparkline" viewBox="0 0 16 16">${sp}</svg><div class="ind-footer"><span class="ind-status">${ind.status}</span><span class="ind-signal ${ind.signalCls}">${ind.signal}</span></div></div>`;
           }).join('')}
+          </div>
+          </div>
+          <div class="section">
+          <div class="section-title">Comment Fonctionne Cette Methode</div>
+          <div class="method-text">
+          <p>L'economie passe par 4 phases (Expansion, Ralentissement, Recession, Reprise), dans un ordre qui se repete mais a une vitesse imprevisible. Chaque phase favorise des secteurs boursiers differents.</p>
+          <p><strong>La methode = une rotation, pas un empilement.</strong> On detient toujours 2-3 ETF a la fois : ceux qui profitent de la phase en cours. Quand la phase change, on vend les ETF de l'ancienne phase et on achete ceux de la nouvelle, avec le meme argent — il ne quitte jamais le PEA, donc pas de fiscalite declenchee a chaque echange.</p>
+          <p><strong>Marche a suivre</strong> : le tableau ci-dessus indique ACHAT / VENTE / ATTENDRE pour chaque ETF. On attend une confirmation de la nouvelle phase avant d'agir plutot que de reagir a un seul signal isole. Environ 4 ajustements par an.</p>
+          <p style="color:#94a3b8">Ce n'est pas garanti : methode basee sur des tendances historiques, pas une science exacte.</p>
           </div>
           </div>
           <div class="footer">
