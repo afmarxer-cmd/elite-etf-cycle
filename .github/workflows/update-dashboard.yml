@@ -160,6 +160,11 @@ jobs:
               // Pas de changement detecte au tout premier run (previousPhase null) pour eviter un email fantome au deploiement initial.
               const phaseChanged = previousPhase !== null && previousPhase !== phase;
               fs.writeFileSync('last-phase.txt', phase);
+              // DATE DE DEBUT DE LA PHASE ACTUELLE (persistee dans phase-since.txt)
+              let phaseSince = null;
+              try { phaseSince = fs.readFileSync('phase-since.txt', 'utf8').trim(); } catch(e) { phaseSince = null; }
+              if (phaseChanged || !phaseSince) { const d = new Date(); phaseSince = ('0'+d.getDate()).slice(-2)+'.'+('0'+(d.getMonth()+1)).slice(-2)+'.'+d.getFullYear(); }
+              fs.writeFileSync('phase-since.txt', phaseSince);
               const displayNames = { expansion: 'EXPANSION', slowdown: 'RALENTISSEMENT', recession: 'RECESSION', recovery: 'REPRISE' };
               if (process.env.GITHUB_ENV) {
                 fs.appendFileSync(process.env.GITHUB_ENV, `PHASE_CHANGED=${phaseChanged}\n`);
@@ -344,7 +349,7 @@ jobs:
           </div>
           <div class="header">
           <div>
-          <div class="header-label">PHASE DE CYCLE DETECTEE</div>
+          <div class="header-label">PHASE DE CYCLE DETECTEE &#183; DEPUIS LE ${phaseSince}</div>
           <div class="phase-title">${phaseName}</div>
           <div class="momentum ${momentumColor}">${momentumArrow} ${momentum} momentum</div>
           <div class="phase-desc">${desc}</div>
@@ -438,7 +443,7 @@ jobs:
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
-          git add index.html last-phase.txt
+          git add index.html last-phase.txt phase-since.txt
           git diff --cached --quiet || git commit -m "Auto-update: FRED data refresh - $(date +%Y-%m-%d)"
           git push
 
