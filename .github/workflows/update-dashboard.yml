@@ -182,21 +182,22 @@ jobs:
               ];
 
               // SIGNALS — 14 ETF du guide Elite ETF, signal par phase (sections 3-4 du guide)
-              // pea: 'O' eligible, 'N' non eligible, 'V' a verifier (les '?' du guide, non resolus volontairement)
-              // NB: noms "Lyxor" herites du guide ; Lyxor a ete absorbe par Amundi, verifier chaque ligne par ISIN sur justETF avant achat.
+              // pea: 'O' eligible, 'N' non eligible (verifie par ISIN le 09/07/2026), 'V' a verifier
+              // Financials World, Luxury et Cons. Staples : NON eligibles PEA (verifies). Alternatives PEA : MLUX (FR001400S9V0, luxe, encours faible) et COSE (FR001400KE06, conso US ESG).
+              // NB: noms "Lyxor" herites du guide ; Lyxor absorbe par Amundi, toujours verifier par ISIN sur justETF avant achat.
               const etfList = [
                 { name: "Amundi PEA S&P 500",              cat: "Actions US",      isin: "FR0011871128", pea: "O", sig: { expansion:"ATTENDRE", slowdown:"ACHAT",    recession:"VENTE",    recovery:"ATTENDRE" } },
                 { name: "Amundi Euro Stoxx 50 II",         cat: "Actions Europe",  isin: "FR0007054358", pea: "O", sig: { expansion:"ATTENDRE", slowdown:"ACHAT",    recession:"VENTE",    recovery:"ATTENDRE" } },
                 { name: "Lyxor PEA Monde (MSCI World)",    cat: "Actions Monde",   isin: "FR0011869353", pea: "O", sig: { expansion:"ATTENDRE", slowdown:"ACHAT",    recession:"VENTE",    recovery:"ATTENDRE" } },
                 { name: "Lyxor CAC 40 (DR)",               cat: "Actions France",  isin: "FR0013380607", pea: "O", sig: { expansion:"ATTENDRE", slowdown:"ACHAT",    recession:"VENTE",    recovery:"ATTENDRE" } },
                 { name: "Lyxor Euro Stoxx Banks (DR)",     cat: "Banques Europe",  isin: "LU1829219390", pea: "O", sig: { expansion:"ACHAT",    slowdown:"VENTE",    recession:"VENTE",    recovery:"ACHAT" } },
-                { name: "Lyxor MSCI World Financials",     cat: "Finance Monde",   isin: "LU0533032859", pea: "V", sig: { expansion:"ACHAT",    slowdown:"VENTE",    recession:"VENTE",    recovery:"ATTENDRE" } },
-                { name: "Amundi S&P Global Luxury",        cat: "Luxe",            isin: "LU1681048630", pea: "V", sig: { expansion:"ACHAT",    slowdown:"VENTE",    recession:"VENTE",    recovery:"ACHAT" } },
+                { name: "Amundi MSCI World Financials",    cat: "Finance Monde",   isin: "LU0533032859", pea: "N", sig: { expansion:"ACHAT",    slowdown:"VENTE",    recession:"VENTE",    recovery:"ATTENDRE" } },
+                { name: "Amundi S&P Global Luxury",        cat: "Luxe",            isin: "LU1681048630", pea: "N", sig: { expansion:"ACHAT",    slowdown:"VENTE",    recession:"VENTE",    recovery:"ACHAT" } },
                 { name: "Lyxor Stoxx Eur. 600 Industrial", cat: "Industrie",       isin: "LU1834987890", pea: "O", sig: { expansion:"ACHAT",    slowdown:"VENTE",    recession:"VENTE",    recovery:"ATTENDRE" } },
                 { name: "Amundi MSCI Europe Energy",       cat: "Energie",         isin: "FR0010930644", pea: "O", sig: { expansion:"ACHAT",    slowdown:"VENTE",    recession:"VENTE",    recovery:"ACHAT" } },
                 { name: "Lyxor Stoxx Eur. 600 Utilities",  cat: "Utilities",       isin: "LU1834988864", pea: "O", sig: { expansion:"VENTE",    slowdown:"ATTENDRE", recession:"ACHAT",    recovery:"VENTE" } },
                 { name: "Lyxor Stoxx Eur. 600 Telecom",    cat: "Telecoms",        isin: "LU1834988609", pea: "O", sig: { expansion:"VENTE",    slowdown:"ATTENDRE", recession:"ACHAT",    recovery:"VENTE" } },
-                { name: "Lyxor MSCI World Cons. Staples",  cat: "Conso. de base",  isin: "LU0533032347", pea: "V", sig: { expansion:"VENTE",    slowdown:"ATTENDRE", recession:"ACHAT",    recovery:"ACHAT" } },
+                { name: "Lyxor MSCI World Cons. Staples",  cat: "Conso. de base",  isin: "LU0533032263", pea: "N", sig: { expansion:"VENTE",    slowdown:"ATTENDRE", recession:"ACHAT",    recovery:"ACHAT" } },
                 { name: "Amundi Physical Gold ETC",        cat: "Or physique",     isin: "FR0013416716", pea: "N", sig: { expansion:"VENTE",    slowdown:"ATTENDRE", recession:"ACHAT",    recovery:"VENTE" } },
                 { name: "Lyxor Core US TIPS (DR)",         cat: "Oblig./Inflation",isin: "LU1452600197", pea: "N", sig: { expansion:"VENTE",    slowdown:"ATTENDRE", recession:"ACHAT",    recovery:"VENTE" } }
               ];
@@ -363,8 +364,8 @@ jobs:
           ${signals.map(s=>`<tr><td>${s.name}</td><td>${s.cat}</td><td class="ticker">${s.isin}</td><td>${s.pea==='O' ? `<span class="pea-badge pea-yes">PEA</span>` : s.pea==='V' ? `<span class="pea-badge pea-maybe">A verifier</span>` : `<span class="pea-badge pea-no">Non eligible</span>`}</td><td><span class="table-signal ${s.cls}">${s.signal}</span></td></tr>`).join('')}
           </tbody>
           </table>
-          <p style="font-size:.62rem;color:#94a3b8;margin-top:10px;line-height:1.5">Noms herites de la strategie d'origine : Lyxor a ete absorbe par Amundi, certains ETF ont ete renommes ou fusionnes. Toujours verifier par ISIN sur justETF ou le site de l'emetteur avant tout ordre.</p>
-          <p style="font-size:.62rem;color:#b45309;margin-top:6px;line-height:1.5"><strong>Pour les lignes "A verifier"</strong> : chercher l'ISIN sur justETF ou la fiche produit Amundi et regarder la mention "Eligible PEA : Oui/Non". Si NON, se demander : existe-t-il une version PEA du meme indice (souvent nommee "PEA ..." chez Amundi, replication synthetique) ? Si oui, remplacer l'ISIN par celui de la version PEA ; sinon, prevoir un CTO pour cette ligne.</p>
+          <p style="font-size:.62rem;color:#94a3b8;margin-top:10px;line-height:1.5">Noms herites de la strategie d'origine : Lyxor a ete absorbe par Amundi, certains ETF ont ete renommes ou fusionnes. Toujours verifier par ISIN sur justETF ou le site de l'emetteur avant tout ordre. Eligibilite PEA verifiee par ISIN le 09/07/2026.</p>
+          <p style="font-size:.62rem;color:#b45309;margin-top:6px;line-height:1.5"><strong>ETF non eligibles PEA</strong> : a loger en CTO ou assurance-vie. Alternatives PEA existantes mais avec reserves : Luxe &#8594; Amundi PEA Luxe Monde MLUX (FR001400S9V0, 0,30%, encours faible ~13 M&#8364;, risque de fermeture) ; Conso. de base &#8594; Amundi PEA S&P US Consumer Staples Screened COSE (FR001400KE06, 0,50%, indice US filtre ESG, different du World) ; Finance Monde &#8594; pas de version PEA, utiliser le Stoxx Europe 600 Banks deja dans la liste.</p>
           </div>
           <div class="allocation-section">
           <div class="section-title">Allocation Cible</div>
