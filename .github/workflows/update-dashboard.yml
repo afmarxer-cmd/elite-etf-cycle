@@ -81,7 +81,7 @@ jobs:
 
               try {
                 const spreads = await fetchFRED('BAMLH0A0HYM2');
-                spreadHY = parseFloat(spreads.value);
+                spreadHY = parseFloat(spreads.value) * 100; // FRED publie en pourcent (ex: 3.03), on convertit en points de base
               } catch(e) { spreadHY = 350; console.log('Using fallback BAMLH0A0HYM2:', spreadHY); }
 
               try {
